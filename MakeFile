@@ -1,0 +1,11 @@
+
+
+all:
+	gcc -o production Producer.c
+	gcc -o philo philo.c
+
+clean:
+	rm -f philo
+
+run: all
+	./production
