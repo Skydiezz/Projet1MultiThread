@@ -1,36 +1,40 @@
 #include <pthread.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #define NB_LECTURES 2540
 #define NB_ECRITURES 640
 
-int readers = 0;              
-pthread_mutex_t mutex;        
-pthread_mutex_t write_lock;   
+int readers = 0;                 
+int waiting_writers = 0;         
+pthread_mutex_t mutex;            
+sem_t room_empty;                 
+sem_t turnstile;                 
 
 void* lecteur(void* arg) {
     int id = *(int*)arg;
     free(arg);
 
     for (int i = 0; i < NB_LECTURES; i++) {
-        
+        sem_wait(&turnstile);           
+        sem_post(&turnstile);
+
         pthread_mutex_lock(&mutex);
         readers++;
-        if (readers == 1) {  
-            pthread_mutex_lock(&write_lock);
+        if (readers == 1) {            
+            sem_wait(&room_empty);
         }
         pthread_mutex_unlock(&mutex);
 
         
         printf("Lecteur %d lit. (%d/2540)\n", id, i + 1);
-        for (int i = 0; i < 10000; i++); 
+        for (int j = 0; j < 10000; j++); 
 
-        
         pthread_mutex_lock(&mutex);
         readers--;
-        if (readers == 0) {   
-            pthread_mutex_unlock(&write_lock);
+        if (readers == 0) {            
+            sem_post(&room_empty);
         }
         pthread_mutex_unlock(&mutex);
     }
@@ -43,15 +47,25 @@ void* ecrivain(void* arg) {
     free(arg);
 
     for (int i = 0; i < NB_ECRITURES; i++) {
-        
-        pthread_mutex_lock(&write_lock);
+        pthread_mutex_lock(&mutex);
+        waiting_writers++;             
+        pthread_mutex_unlock(&mutex);
+
+        sem_wait(&turnstile);          
+        sem_wait(&room_empty);         
 
         
         printf("Écrivain %d écrit. (%d/640)\n", id, i + 1);
-        for (int i = 0; i < 10000; i++); 
+        for (int j = 0; j < 10000; j++); 
 
-        
-        pthread_mutex_unlock(&write_lock);
+        sem_post(&room_empty);         
+
+        pthread_mutex_lock(&mutex);
+        waiting_writers--;             
+        if (waiting_writers == 0) {    
+            sem_post(&turnstile);
+        }
+        pthread_mutex_unlock(&mutex);
     }
 
     return NULL;
@@ -71,9 +85,10 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    
+   
     pthread_mutex_init(&mutex, NULL);
-    pthread_mutex_init(&write_lock, NULL);
+    sem_init(&room_empty, 0, 1);
+    sem_init(&turnstile, 0, 1);
 
     pthread_t lecteurs[nb_lecteurs];
     pthread_t ecrivains[nb_ecrivains];
@@ -98,7 +113,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-   
+    
     for (int i = 0; i < nb_lecteurs; i++) {
         if (pthread_join(lecteurs[i], NULL) != 0) {
             perror("Erreur lors de la terminaison d'un thread lecteur");
@@ -114,9 +129,10 @@ int main(int argc, char* argv[]) {
         }
     }
 
-   
+    
     pthread_mutex_destroy(&mutex);
-    pthread_mutex_destroy(&write_lock);
+    sem_destroy(&room_empty);
+    sem_destroy(&turnstile);
 
     printf("Simulation terminée avec succès.\n");
     return EXIT_SUCCESS;
