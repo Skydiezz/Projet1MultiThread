@@ -1,51 +1,56 @@
 #!/bin/bash
 
-# Nom des programmes à tester (remplacez par les chemins réels)
-PROGRAMS=("production")
 
-# Nombre total de threads à tester
+PROGRAMS=("production" "philo" "other_program")
+
+
 THREAD_COUNTS=(2 4 8 16 32)
 
-# Nombre de répétitions pour chaque test
 REPEATS=5
 
-# Répertoire pour stocker les résultats
-OUTPUT_DIR=""
+OUTPUT_DIR="results"
+mkdir -p "$OUTPUT_DIR"
 
 # Désactiver les sorties STDOUT et STDERR
 DEVNULL="/dev/null"
 
-# Fonction pour exécuter un programme avec des paramètres
 measure_time() {
     local program=$1
-    local producers=$2
-    local consumers=$3
+    shift
+    local args=("$@")
 
     start=$(date +%s.%N) # Temps de début
-    ./"$program" "$producers" "$consumers" > $DEVNULL 2>&1
+    ./"$program" "${args[@]}" > $DEVNULL 2>&1
     end=$(date +%s.%N)   # Temps de fin
 
     echo "$(echo "$end - $start" | bc)" # Calcul de la durée
 }
 
-# Parcourir chaque programme
+
 for program in "${PROGRAMS[@]}"; do
     echo "Testing $program..."
-    output_file="performance_results.csv"
+    output_file="$OUTPUT_DIR/${program}_results.csv"
 
-    # En-tête du fichier CSV
     echo "Threads,Run1,Run2,Run3,Run4,Run5,Average" > "$output_file"
 
     # Tester chaque configuration de threads
     for total_threads in "${THREAD_COUNTS[@]}"; do
-        producers=$((total_threads / 2))
-        consumers=$((total_threads - producers))
-        echo "  Config: $producers producers, $consumers consumers"
+
+        if [[ "$program" == "producer" ]]; then
+            producers=$((total_threads / 2))
+            consumers=$((total_threads - producers))
+            args=("$producers" "$consumers")
+            echo "  Config: $producers producers, $consumers consumers"
+        else
+
+            args=("$total_threads")
+            echo "  Config: $total_threads threads (direct usage)"
+        fi
 
         # Mesurer les temps d'exécution
         times=()
         for ((i=1; i<=REPEATS; i++)); do
-            time=$(measure_time "$program" "$producers" "$consumers")
+            time=$(measure_time "$program" "${args[@]}")
             times+=("$time")
         done
 
@@ -61,4 +66,4 @@ for program in "${PROGRAMS[@]}"; do
     done
 done
 
-echo "Performance evaluation complete. Results saved in $output_file/"
+echo "Performance evaluation complete. Results saved in $OUTPUT_DIR/"
