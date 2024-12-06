@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <time.h>
 
 volatile int locked = 0;
 
@@ -15,6 +16,7 @@ static inline int xchg(volatile int *addr, int newval) {
     return oldval;
 }
 
+
 void lock(volatile int *locked) {
     while (xchg(locked, 1) == 1) {
     }
@@ -24,20 +26,19 @@ void unlock(volatile int *locked) {
     *locked = 0;
 }
 
-void critical(int thread_id) {
-    printf("Thread %d is entering the critical section.\n", thread_id);
-    for (volatile int i = 0; i < 10000; i++);
-    printf("Thread %d is leaving the critical section.\n", thread_id);
+void critical() {
+    for (volatile int i = 0; i < 10000; i++); 
 }
 
-
 void *thread_f(void *arg) {
-    int thread_id = *((int *)arg);
+    int sections = *((int *)arg);
     free(arg);
 
-    lock(&locked);
-    critical(thread_id);
-    unlock(&locked);
+    for (int i = 0; i < sections; i++) {
+        lock(&locked);
+        critical(); 
+        unlock(&locked);
+    }
 
     return NULL;
 }
@@ -54,16 +55,21 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    int sections_per_thread = 32768 / num_t;
     pthread_t threads[num_t];
 
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
     for (int i = 0; i < num_t; i++) {
-        int *thread_id = malloc(sizeof(int));
-        if (!thread_id) {
+        int *sections = malloc(sizeof(int));
+        if (!sections) {
             perror("malloc");
             exit(EXIT_FAILURE);
         }
-        *thread_id = i;
-        if (pthread_create(&threads[i], NULL, thread_f, thread_id) != 0) {
+        *sections = sections_per_thread;
+
+        if (pthread_create(&threads[i], NULL, thread_f, sections) != 0) {
             perror("pthread_create");
             exit(EXIT_FAILURE);
         }
@@ -73,6 +79,11 @@ int main(int argc, char *argv[]) {
         pthread_join(threads[i], NULL);
     }
 
-    printf("All threads have finished execution.\n");
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    double elapsed_time = (end.tv_sec - start.tv_sec) + 
+                          (end.tv_nsec - start.tv_nsec) / 1e9;
+    printf("%d threads: Total time = %.6f seconds\n", num_t, elapsed_time);
+
     return 0;
 }
