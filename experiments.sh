@@ -17,12 +17,22 @@ measure_time() {
     shift
     local args=("$@")
 
-    # Exécute le programme avec `time` et capture le temps réel (real time)
-    real_time=$(/usr/bin/time -f "%e" ./"$program" "${args[@]}" > $DEVNULL 2>&1 2>/tmp/time_output.txt; cat /tmp/time_output.txt)
 
-    # Affiche le temps réel
+    local DEVNULL=${DEVNULL:-/dev/null}
+
+
+    /usr/bin/time -f "%e" ./"$program" "${args[@]}" > "$DEVNULL" 2> /tmp/time_output.txt
+
+    if [ -s /tmp/time_output.txt ]; then
+        real_time=$(cat /tmp/time_output.txt)
+    else
+        echo "Problem with the execution of $program" >&2
+        return 1
+    fi
+ 
     echo "$real_time"
 }
+
 
 
 for program in "${PROGRAMS[@]}"; do
@@ -34,32 +44,32 @@ for program in "${PROGRAMS[@]}"; do
     # Tester chaque configuration de threads
     for total_threads in "${THREAD_COUNTS[@]}"; do
 
-        if [[ "$program" == "producer" ]]; then
+        if [[ "$program" == "production" || "$program" == "lecture" ]]; then
             producers=$((total_threads / 2))
             consumers=$((total_threads - producers))
             args=("$producers" "$consumers")
-            echo "  Config: $producers producers, $consumers consumers"
+            echo "  Config: $producers type1, $consumers type2"
         else
 
             args=("$total_threads")
             echo "  Config: $total_threads threads (direct usage)"
         fi
 
-        # Mesurer les temps d'exécution
+        # Temps d'exécution
         times=()
         for ((i=1; i<=REPEATS; i++)); do
             time=$(measure_time "$program" "${args[@]}")
             times+=("$time")
         done
 
-        # Calculer la moyenne
+        # Moyenne
         sum=0
         for time in "${times[@]}"; do
             sum=$(echo "$sum + $time" | bc)
         done
         average=$(echo "$sum / ${#times[@]}" | bc -l)
 
-        # Ajouter les résultats au fichier CSV
+        # Ajoute les résultats au fichier CSV
         echo "$total_threads,${times[*]},$average" | sed 's/ /,/g' >> "$output_file"
     done
 done
