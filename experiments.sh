@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-PROGRAMS=("production" "philo" "lecture" "testi")
+PROGRAMS=("production" "philo" "lecture" "test-and-set" "test-and-test-and-set")
 
 
 THREAD_COUNTS=(2 4 8 16 32)
