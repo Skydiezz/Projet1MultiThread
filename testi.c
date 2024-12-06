@@ -26,7 +26,7 @@ void unlock(volatile int *locked) {
 
 void critical(int thread_id) {
     printf("Thread %d is entering the critical section.\n", thread_id);
-    for (volatile int i = 0; i < 1000000; i++);
+    for (volatile int i = 0; i < 10000; i++);
     printf("Thread %d is leaving the critical section.\n", thread_id);
 }
 

@@ -17,11 +17,11 @@ measure_time() {
     shift
     local args=("$@")
 
-    start=$(date +%s.%N) # Temps de début
-    ./"$program" "${args[@]}" > $DEVNULL 2>&1
-    end=$(date +%s.%N)   # Temps de fin
+    # Exécute le programme avec `time` et capture le temps réel (real time)
+    real_time=$(/usr/bin/time -f "%e" ./"$program" "${args[@]}" > $DEVNULL 2>&1 2>/tmp/time_output.txt; cat /tmp/time_output.txt)
 
-    echo "$(echo "$end - $start" | bc)" # Calcul de la durée
+    # Affiche le temps réel
+    echo "$real_time"
 }
 
 
