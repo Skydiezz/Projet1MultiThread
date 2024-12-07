@@ -8,7 +8,7 @@
 #define ITE 1000000
 
 int N;
-volatile sem_t *forke;
+sem_t *forke;
 
 void* philo(void* arg){
     int id = *(int*)arg;

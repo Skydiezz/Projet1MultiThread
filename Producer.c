@@ -1,90 +1,76 @@
 #include <pthread.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #define BUFFER_SIZE 8
 #define TOTAL_ITEMS 131072
 
-// Buffer partagé
+
 int buffer[BUFFER_SIZE];
-int in = 0, out = 0, count = 0;
+int in = 0;
+int out = 0;
 
-// Mutex et variables de condition
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t not_full = PTHREAD_COND_INITIALIZER;
-pthread_cond_t not_empty = PTHREAD_COND_INITIALIZER;
 
-// Nombre d'éléments restants à produire/consommer
-int items_left = TOTAL_ITEMS;
+pthread_mutex_t mutex;
+sem_t empty;
+sem_t full;
 
-// Fonction du thread producteur
+void insert_item(int item) {
+    buffer[in] = item;
+    in = (in + 1) % BUFFER_SIZE;
+}
+
+
+int remove_item() {
+    int item = buffer[out];
+    out = (out + 1) % BUFFER_SIZE;
+    return item;
+}
+
 void* producer(void* arg) {
     int id = *(int*)arg;
-
-    while (1) {
-        pthread_mutex_lock(&mutex);
-
-        // Attendre une place disponible
-        while (count == BUFFER_SIZE && items_left > 0) {
-            pthread_cond_wait(&not_full, &mutex);
-        }
-
-        if (items_left <= 0) {
-            pthread_mutex_unlock(&mutex);
-            break;
-        }
-
-        // Production
-        buffer[in] = id;
-        in = (in + 1) % BUFFER_SIZE;
-        count++;
-        items_left--;
-
-        pthread_cond_signal(&not_empty); // Réveiller un consommateur
-        pthread_mutex_unlock(&mutex);
-
-        // Simuler un traitement
-        for (int i = 0; i < 10000; i++);
-    }
-
     free(arg);
-    return NULL;
-}
 
-// Fonction du thread consommateur
-void* consumer(void* arg) {
-    while (1) {
+    for (int i = 0; i < TOTAL_ITEMS / BUFFER_SIZE; i++) {
+        sem_wait(&empty); 
         pthread_mutex_lock(&mutex);
 
-        // Attendre un élément disponible
-        while (count == 0 && items_left > 0) {
-            pthread_cond_wait(&not_empty, &mutex);
-        }
+        // Section critique 
+        insert_item(id);
+        printf("Producer %d produced item at index %d\n", id, (in - 1 + BUFFER_SIZE) % BUFFER_SIZE);
 
-        if (items_left <= 0 && count == 0) {
-            pthread_mutex_unlock(&mutex);
-            break;
-        }
-
-        // Consommation
-        int item = buffer[out];
-        out = (out + 1) % BUFFER_SIZE;
-        count--;
-
-        pthread_cond_signal(&not_full); // Réveiller un producteur
         pthread_mutex_unlock(&mutex);
+        sem_post(&full); 
 
-        // Simuler un traitement
-        for (int i = 0; i < 10000; i++);
-
-        // Affichage de l'élément consommé (facultatif)
-        printf("Consumer consumed: %d\n", item);
+        // Simulation du traitement
+        for (int j = 0; j < 10000; j++);
     }
 
     return NULL;
 }
 
-// Programme principal
+void* consumer(void* arg) {
+    (void) arg;
+    for (int i = 0; i < TOTAL_ITEMS / BUFFER_SIZE; i++) {
+        sem_wait(&full); 
+        pthread_mutex_lock(&mutex);
+
+        // Section critique 
+        remove_item();
+        printf("Consumer consumed item from index %d\n", (out - 1 + BUFFER_SIZE) % BUFFER_SIZE);
+
+        pthread_mutex_unlock(&mutex);
+        sem_post(&empty); 
+
+        // Simulation du traitement 
+        for (int j = 0; j < 10000; j++);
+    }
+
+    return NULL;
+}
+
 int main(int argc, char* argv[]) {
     if (argc != 3) {
         fprintf(stderr, "Usage: %s <num_producers> <num_consumers>\n", argv[0]);
@@ -94,18 +80,30 @@ int main(int argc, char* argv[]) {
     int num_producers = atoi(argv[1]);
     int num_consumers = atoi(argv[2]);
 
-    pthread_t producers[num_producers], consumers[num_consumers];
+    pthread_t producers[num_producers];
+    pthread_t consumers[num_consumers];
 
-    // Créer les threads producteurs
+    // Initialisation du mutex et des sémaphores
+    pthread_mutex_init(&mutex, NULL);
+    sem_init(&empty, 0, BUFFER_SIZE);
+    sem_init(&full, 0, 0);
+
+    // Création des threads producteurs
     for (int i = 0; i < num_producers; i++) {
-        int* id = malloc(sizeof(int)); // Allouer dynamiquement pour éviter les conflits
+        int* id = malloc(sizeof(int));
         *id = i + 1;
-        pthread_create(&producers[i], NULL, producer, id);
+        if (pthread_create(&producers[i], NULL, producer, id) != 0) {
+            perror("Failed to create producer thread");
+            return EXIT_FAILURE;
+        }
     }
 
-    // Créer les threads consommateurs
+    // Création des threads consommateurs
     for (int i = 0; i < num_consumers; i++) {
-        pthread_create(&consumers[i], NULL, consumer, NULL);
+        if (pthread_create(&consumers[i], NULL, consumer, NULL) != 0) {
+            perror("Failed to create consumer thread");
+            return EXIT_FAILURE;
+        }
     }
 
     // Attendre les producteurs
@@ -118,10 +116,10 @@ int main(int argc, char* argv[]) {
         pthread_join(consumers[i], NULL);
     }
 
-    // Nettoyer
+    // Nettoyage
     pthread_mutex_destroy(&mutex);
-    pthread_cond_destroy(&not_full);
-    pthread_cond_destroy(&not_empty);
+    sem_destroy(&empty);
+    sem_destroy(&full);
 
     return EXIT_SUCCESS;
 }

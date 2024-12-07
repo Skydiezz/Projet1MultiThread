@@ -6,7 +6,7 @@
 #define ITE 1000000
 
 int N;
-volatile semaphore_t *forke;
+semaphore_t *forke;
 
 
 void *philo(void *arg) {
@@ -16,19 +16,19 @@ void *philo(void *arg) {
     for (int i = 0; i < ITE; i++) {
         printf("Philosophe %d pense.\n", id);
         if (id % 2 == 0) {
-            sem_wait_fake(&forke[id]);
-            sem_wait_fake(&forke[(id + 1) % N]);
+            sem_wait(&forke[id]);
+            sem_wait(&forke[(id + 1) % N]);
         } else {
-            sem_wait_fake(&forke[(id + 1) % N]);
-            sem_wait_fake(&forke[id]);
+            sem_wait(&forke[(id + 1) % N]);
+            sem_wait(&forke[id]);
         }
 
         printf("Philosophe %d mange.\n", id);
 
-        sem_post_fake(&forke[id]);
-        sem_post_fake(&forke[(id + 1) % N]);
+        sem_post(&forke[id]);
+        sem_post(&forke[(id + 1) % N]);
     }
-
+    printf("Philosophe done -----------------");
     return NULL;
 }
 
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     }
 
     for (int i = 0; i < N; i++) {
-        semaphore_init_fake(&forke[i], 1);
+        semaphore_init(&forke[i], 1);
     }
 
     pthread_t threads[N];
@@ -70,6 +70,10 @@ int main(int argc, char *argv[]) {
             perror("Erreur lors de la terminaison d'un thread");
             return EXIT_FAILURE;
         }
+    }
+
+    for(int i = 0; i < N; i++){
+        semaphore_destroy(&forke[i]);
     }
 
     free(forke);

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-PROGRAMS=("production" "philo" "lecture" "test-and-set" "test-and-test-and-set" "philoV2")
+PROGRAMS=("test-and-set" "test-and-test-and-set" "production" "lecture" "philo" "philoV2" "lectureV2" "productionV2")
 
 
 THREAD_COUNTS=(2 4 8 16 32)
@@ -44,7 +44,7 @@ for program in "${PROGRAMS[@]}"; do
     # Tester chaque configuration de threads
     for total_threads in "${THREAD_COUNTS[@]}"; do
 
-        if [[ "$program" == "production" || "$program" == "lecture" ]]; then
+        if [[ "$program" == "production" || "$program" == "lecture" || "$program" == "productionV2" || "$program" == "lectureV2" ]]; then
             producers=$((total_threads / 2))
             consumers=$((total_threads - producers))
             args=("$producers" "$consumers")

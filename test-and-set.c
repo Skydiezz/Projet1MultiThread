@@ -58,8 +58,6 @@ int main(int argc, char *argv[]) {
     int sections_per_thread = 32768 / num_t;
     pthread_t threads[num_t];
 
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
 
     for (int i = 0; i < num_t; i++) {
         int *sections = malloc(sizeof(int));
@@ -79,11 +77,6 @@ int main(int argc, char *argv[]) {
         pthread_join(threads[i], NULL);
     }
 
-    clock_gettime(CLOCK_MONOTONIC, &end);
-
-    double elapsed_time = (end.tv_sec - start.tv_sec) + 
-                          (end.tv_nsec - start.tv_nsec) / 1e9;
-    printf("%d threads: Total time = %.6f seconds\n", num_t, elapsed_time);
 
     return 0;
 }
