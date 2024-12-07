@@ -1,9 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
-
-volatile int locked = 0;
+#include "h-files/semaphore_struct.h"
 
 static inline int xchg(volatile int *addr, int newval) {
     int oldval;
@@ -16,31 +11,29 @@ static inline int xchg(volatile int *addr, int newval) {
     return oldval;
 }
 
-
-void lock(volatile int *locked) {
-    while (xchg(locked, 1) == 1) {
+static void lock(volatile int *locked) {
+    while (1) {
+        while (*locked == 1);
+        if (xchg(locked, 1) == 0) {
+            break;
+        }
     }
 }
 
-void unlock(volatile int *locked) {
+static void unlock(volatile int *locked) {
     *locked = 0;
 }
 
-typedef struct {
-    int value;             
-    volatile int lock_var; 
-} semaphore_t;
-
-void semaphore_init_fake(semaphore_t *sem, int init_value) {
+void semaphore_init_fake(volatile semaphore_t *sem, int init_value) {
     sem->value = init_value;
     sem->lock_var = 0;
 }
 
-void sem_wait_fake(semaphore_t *sem) {
+void sem_wait_fake(volatile semaphore_t *sem) {
     while (1) {
         lock(&sem->lock_var);
         if (sem->value > 0) {
-            sem->value--; 
+            sem->value--;
             unlock(&sem->lock_var);
             break;
         }
@@ -48,8 +41,8 @@ void sem_wait_fake(semaphore_t *sem) {
     }
 }
 
-void sem_post_fake(semaphore_t *sem) {
-    lock(&sem->lock_var); 
+void sem_post_fake(volatile semaphore_t *sem) {
+    lock(&sem->lock_var);
     sem->value++;
     unlock(&sem->lock_var);
 }

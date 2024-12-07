@@ -6,10 +6,11 @@ all:
 	gcc -Wall -Wextra -o philo philo.c
 	gcc -Wall -Wextra -o test-and-set test-and-set.c
 	gcc -Wall -Wextra -o test-and-test-and-set test-and-test-and-set.c
+	gcc -Wall -Wextra -o philoV2 philoV2.c semaphore_struct.c -pthread
 	chmod +x experiments.sh
 
 clean:
-	rm -f philo production lecture test-and-set test-and-test-and-set
+	rm -f philo production lecture test-and-set test-and-test-and-set philoV2
 
 run: experiments.sh
 	./experiments.sh

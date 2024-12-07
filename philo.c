@@ -4,12 +4,11 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define BUFFER_SIZE 8
-#define TOTAL_ITEMS 131072
+
 #define ITE 1000000
 
 int N;
-sem_t *forke;
+volatile sem_t *forke;
 
 void* philo(void* arg){
     int id = *(int*)arg;
@@ -48,6 +47,11 @@ int main(int argc, char* argv[]){
     }
 
     forke = malloc(N * sizeof(sem_t));
+        if (!forke) {
+        perror("malloc");
+        return EXIT_FAILURE;
+    }
+
     for(int i = 0; i < N; i++){
         sem_init(&forke[i], 0, 1);
     }
