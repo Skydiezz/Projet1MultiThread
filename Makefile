@@ -14,5 +14,5 @@ all:
 clean:
 	rm -f philo production lecture test-and-set test-and-test-and-set philoV2 productionV2 lectureV2
 
-run: experiments.sh
+test: experiments.sh
 	./experiments.sh
